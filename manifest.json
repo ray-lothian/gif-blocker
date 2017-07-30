@@ -1,0 +1,31 @@
+{
+  "name": "GIF Blocker",
+  "description": "Block GIF images from being loaded on HTML pages to reduce bandwidth and resource usage",
+  "author": "Ray Lothian",
+  "version": "0.1.0",
+  "manifest_version": 2,
+  "permissions": [
+    "storage",
+    "tabs",
+    "webRequest",
+    "webRequestBlocking",
+    "<all_urls>",
+    "contextMenus"
+  ],
+  "background": {
+    "scripts": [
+      "common.js"
+    ]
+  },
+  "web_accessible_resources": [
+    "/data/block.svg"
+  ],
+  "icons": {
+    "16": "data/icons/16.png",
+    "32": "data/icons/32.png",
+    "48": "data/icons/48.png",
+    "64": "data/icons/64.png",
+    "128": "data/icons/128.png",
+    "256": "data/icons/256.png"
+  }
+}
