@@ -1,29 +1,106 @@
 'use strict';
 
-chrome.webRequest.onHeadersReceived.addListener(d => {
-  if (/\.gif/.test(d.url) && d.tabId > 0) {
-    return {
-      redirectUrl: chrome.runtime.getURL('/data/block.svg')
-    };
-  }
-}, {
-  urls: ['<all_urls>'],
-  types: ['image']
-}, ['blocking']);
+const config = {
+  regexps: [],
+  patterns: []
+};
 
-chrome.contextMenus.create({
-  id: 'reload-image',
-  title: 'Reload this image',
-  contexts: ['image'],
-  documentUrlPatterns: ['*://*/*'],
-  targetUrlPatterns: ['*://*/*.gif*']
+const listen = {
+  webRequest: d => {
+    if (d.tabId > 0) {
+      if (config.regexps.some(f => f.test(d.url))) {
+        return {
+          redirectUrl: chrome.runtime.getURL('/data/block.svg')
+        };
+      }
+    }
+  }
+};
+
+function install() {
+  chrome.contextMenus.remove('reload-image', () => {
+    chrome.runtime.lastError;
+    chrome.contextMenus.create({
+      id: 'reload-image',
+      title: 'Reload this image',
+      contexts: ['image'],
+      documentUrlPatterns: ['*://*/*'],
+      targetUrlPatterns: config.patterns
+    });
+  });
+  chrome.webRequest.onHeadersReceived.addListener(listen.webRequest, {
+    urls: ['<all_urls>'],
+    types: ['image']
+  }, ['blocking']);
+  chrome.browserAction.setIcon({
+    path: {
+      '16': 'data/icons/16.png',
+      '32': 'data/icons/32.png',
+      '48': 'data/icons/48.png',
+      '64': 'data/icons/64.png'
+    }
+  });
+  chrome.browserAction.setTitle({
+    title: 'GIF Blocker (enabled)'
+  });
+}
+
+function remove() {
+  chrome.webRequest.onHeadersReceived.removeListener(listen.webRequest);
+  chrome.contextMenus.remove('reload-image');
+  chrome.browserAction.setIcon({
+    path: {
+      '16': 'data/icons/disabled/16.png',
+      '32': 'data/icons/disabled/32.png',
+      '48': 'data/icons/disabled/48.png',
+      '64': 'data/icons/disabled/64.png'
+    }
+  });
+  chrome.browserAction.setTitle({
+    title: 'GIF Blocker (disabled)'
+  });
+}
+
+function state(disabled) {
+  if (disabled) {
+    remove();
+  }
+  else {
+    chrome.storage.local.get({
+      extensions: ['gif', 'webp']
+    }, prefs => {
+      config.regexps = prefs.extensions.map(e => new RegExp('\\.' + e, 'i'));
+      config.patterns = prefs.extensions.map(e => '*://*/*.' + e + '*');
+      install();
+    });
+  }
+}
+
+chrome.storage.local.get({
+  disabled: true
+}, prefs => {
+  state(prefs.disabled);
+});
+chrome.storage.onChanged.addListener(prefs => {
+  if (prefs.disabled) {
+    state(prefs.disabled.newValue);
+  }
+});
+
+chrome.browserAction.onClicked.addListener(() => {
+  chrome.storage.local.get({
+    disabled: true
+  }, prefs => {
+    prefs.disabled = !prefs.disabled;
+    chrome.storage.local.set(prefs);
+  });
 });
 
 function get(url, tabId, frameId) {
   const details = {
     frameId,
     allFrames: false,
-    runAt: 'document_start',
+    runAt: 'document_start'
   };
   chrome.tabs.insertCSS(tabId, Object.assign(details, {
     code: `
@@ -46,6 +123,7 @@ function get(url, tabId, frameId) {
         .then(res => res.blob())
         .then(blob => {
           const objectURL = URL.createObjectURL(blob);
+          window.setTimeout(() => URL.revokeObjectURL(objectURL), 30000);
 
           chrome.tabs.executeScript(tabId, Object.assign(details, {
             code: `{
@@ -78,23 +156,28 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 });
 
 // FAQs & Feedback
-chrome.storage.local.get({
-  'version': null,
-  'faqs': /Firefox/.test(navigator.userAgent) === false
-}, prefs => {
-  const version = chrome.runtime.getManifest().version;
-
-  if (prefs.version ? (prefs.faqs && prefs.version !== version) : true) {
-    chrome.storage.local.set({version}, () => {
-      chrome.tabs.create({
-        url: 'http://add0n.com/gif-blocker.html?version=' + version +
-          '&type=' + (prefs.version ? ('upgrade&p=' + prefs.version) : 'install')
-      });
+{
+  const {onInstalled, setUninstallURL, getManifest} = chrome.runtime;
+  const {name, version} = getManifest();
+  const page = getManifest().homepage_url;
+  onInstalled.addListener(({reason, previousVersion}) => {
+    chrome.storage.local.get({
+      'faqs': true,
+      'last-update': 0
+    }, prefs => {
+      if (reason === 'install' || (prefs.faqs && reason === 'update')) {
+        const doUpdate = (Date.now() - prefs['last-update']) / 1000 / 60 / 60 / 24 > 45;
+        if (doUpdate && previousVersion !== version) {
+          chrome.tabs.create({
+            url: page + '?version=' + version +
+              (previousVersion ? '&p=' + previousVersion : '') +
+              '&type=' + reason,
+            active: reason === 'install'
+          });
+          chrome.storage.local.set({'last-update': Date.now()});
+        }
+      }
     });
-  }
-});
-
-(function() {
-  const {name, version} = chrome.runtime.getManifest();
-  chrome.runtime.setUninstallURL('http://add0n.com/feedback.html?name=' + name + '&version=' + version);
-})();
+  });
+  setUninstallURL(page + '?rd=feedback&name=' + encodeURIComponent(name) + '&version=' + version);
+}
