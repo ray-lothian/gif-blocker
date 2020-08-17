@@ -8,29 +8,31 @@ const config = {
 const listen = {
   webRequest: d => {
     if (d.tabId > 0) {
-      if (config.regexps.some(f => f.test(d.url))) {
-        return {
-          redirectUrl: chrome.runtime.getURL('/data/block.svg')
-        };
-      }
+      return {
+        redirectUrl: chrome.runtime.getURL('/data/block.svg') + '?o=' + encodeURIComponent(d.url)
+      };
     }
   }
 };
 
 function install() {
-  chrome.contextMenus.remove('reload-image', () => {
+  chrome.contextMenus.removeAll(() => {
     chrome.runtime.lastError;
+    const targetUrlPatterns = config.patterns;
+    if (/Firefox/.test(navigator.userAgent) ) {
+      targetUrlPatterns.push('moz-extension://*/*');
+    }
     chrome.contextMenus.create({
       id: 'reload-image',
       title: 'Reload this image',
       contexts: ['image'],
       documentUrlPatterns: ['*://*/*'],
-      targetUrlPatterns: config.patterns
+      targetUrlPatterns
     });
   });
   chrome.webRequest.onHeadersReceived.addListener(listen.webRequest, {
-    urls: ['<all_urls>'],
-    types: ['image']
+    urls: config.patterns,
+    types: ['image', 'imageset'].filter(n => chrome.webRequest.ResourceType[n.toUpperCase()])
   }, ['blocking']);
   chrome.browserAction.setIcon({
     path: {
@@ -47,7 +49,7 @@ function install() {
 
 function remove() {
   chrome.webRequest.onHeadersReceived.removeListener(listen.webRequest);
-  chrome.contextMenus.remove('reload-image');
+  chrome.contextMenus.removeAll();
   chrome.browserAction.setIcon({
     path: {
       '16': 'data/icons/disabled/16.png',
@@ -67,10 +69,9 @@ function state(disabled) {
   }
   else {
     chrome.storage.local.get({
-      extensions: ['gif', 'webp']
+      extensions: ['gif', 'gifv', 'webp']
     }, prefs => {
-      config.regexps = prefs.extensions.map(e => new RegExp('\\.' + e, 'i'));
-      config.patterns = prefs.extensions.map(e => '*://*/*.' + e + '*');
+      config.patterns = prefs.extensions.map(e => ['*://*/*.' + e.toLowerCase() + '*', '*://*/*.' + e.toUpperCase() + '*']).flat();
       install();
     });
   }
@@ -97,6 +98,9 @@ chrome.browserAction.onClicked.addListener(() => {
 });
 
 function get(url, tabId, frameId) {
+  if (url.startsWith('moz-extension://')) {
+    url = decodeURIComponent(url.split('?o=')[1]);
+  }
   const details = {
     frameId,
     allFrames: false,
@@ -127,14 +131,26 @@ function get(url, tabId, frameId) {
 
           chrome.tabs.executeScript(tabId, Object.assign(details, {
             code: `{
-              const images = [...document.images].filter(i => i.src === '${url}')
+              const images = [...document.images];
+              try {
+                images.push(...document.querySelectorAll('source[srcset="${url}"]'));
+              }
+              catch(e) {}
+
+              images.filter(i => i.src === '${url}' || i.srcset === '${url}')
                 .forEach(i => {
                   const req = new XMLHttpRequest();
                   req.open('GET', '${objectURL}');
                   req.responseType = 'blob';
                   req.onload = () => {
                     const url = URL.createObjectURL(req.response);
-                    i.src = url;
+                    if (i.src === '${url}') {
+                      i.src = url;
+                      i.removeAttribute('srcset');
+                    }
+                    else {
+                      i.srcset = url;
+                    }
                     i.dataset.fetching = false;
                   };
                   req.onerror = () => {
@@ -155,29 +171,29 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   }
 });
 
-// FAQs & Feedback
+/* FAQs & Feedback */
 {
-  const {onInstalled, setUninstallURL, getManifest} = chrome.runtime;
-  const {name, version} = getManifest();
-  const page = getManifest().homepage_url;
-  onInstalled.addListener(({reason, previousVersion}) => {
-    chrome.storage.local.get({
-      'faqs': true,
-      'last-update': 0
-    }, prefs => {
-      if (reason === 'install' || (prefs.faqs && reason === 'update')) {
-        const doUpdate = (Date.now() - prefs['last-update']) / 1000 / 60 / 60 / 24 > 45;
-        if (doUpdate && previousVersion !== version) {
-          chrome.tabs.create({
-            url: page + '?version=' + version +
-              (previousVersion ? '&p=' + previousVersion : '') +
-              '&type=' + reason,
-            active: reason === 'install'
-          });
-          chrome.storage.local.set({'last-update': Date.now()});
+  const {management, runtime: {onInstalled, setUninstallURL, getManifest}, storage, tabs} = chrome;
+  if (navigator.webdriver !== true) {
+    const page = getManifest().homepage_url;
+    const {name, version} = getManifest();
+    onInstalled.addListener(({reason, previousVersion}) => {
+      management.getSelf(({installType}) => installType === 'normal' && storage.local.get({
+        'faqs': true,
+        'last-update': 0
+      }, prefs => {
+        if (reason === 'install' || (prefs.faqs && reason === 'update')) {
+          const doUpdate = (Date.now() - prefs['last-update']) / 1000 / 60 / 60 / 24 > 45;
+          if (doUpdate && previousVersion !== version) {
+            tabs.create({
+              url: page + '?version=' + version + (previousVersion ? '&p=' + previousVersion : '') + '&type=' + reason,
+              active: reason === 'install'
+            });
+            storage.local.set({'last-update': Date.now()});
+          }
         }
-      }
+      }));
     });
-  });
-  setUninstallURL(page + '?rd=feedback&name=' + encodeURIComponent(name) + '&version=' + version);
+    setUninstallURL(page + '?rd=feedback&name=' + encodeURIComponent(name) + '&version=' + version);
+  }
 }

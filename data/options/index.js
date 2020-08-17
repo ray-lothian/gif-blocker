@@ -3,7 +3,7 @@
 const toast = document.getElementById('toast');
 
 const restore = () => chrome.storage.local.get({
-  extensions: ['gif', 'webp']
+  extensions: ['gif', 'gifv', 'webp']
 }, prefs => {
   document.getElementById('extensions').value = prefs.extensions.join(', ');
 });

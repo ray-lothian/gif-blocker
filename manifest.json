@@ -1,15 +1,14 @@
 {
   "name": "GIF Blocker",
   "description": "Block GIF images from being loaded on HTML pages to reduce bandwidth and resource usage",
-  "author": "Ray Lothian",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "manifest_version": 2,
   "permissions": [
     "storage",
-    "tabs",
     "webRequest",
     "webRequestBlocking",
-    "<all_urls>",
+    "activeTab",
+    "*://*/*",
     "contextMenus"
   ],
   "homepage_url": "https://add0n.com/gif-blocker.html",
@@ -30,13 +29,7 @@
     "256": "data/icons/256.png"
   },
   "browser_action":{
-    "default_title": "GIF Blocker (disabled)",
-    "default_icon": {
-      "16": "data/icons/disabled/16.png",
-      "32": "data/icons/disabled/32.png",
-      "48": "data/icons/disabled/48.png",
-      "64": "data/icons/disabled/64.png"
-    }
+    "default_title": "GIF Blocker (disabled)"
   },
   "options_ui": {
     "page": "data/options/index.html",
