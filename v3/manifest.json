@@ -1,0 +1,55 @@
+{
+  "name": "GIF Blocker",
+  "description": "Block GIF and WebP animation images on HTML pages to reduce bandwidth and resource usage",
+  "version": "0.2.0",
+  "manifest_version": 3,
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "contextMenus",
+    "declarativeNetRequest"
+  ],
+  "host_permissions": [
+    "*://*/*"
+  ],
+  "declarative_net_request": {
+    "rule_resources" : [{
+      "id": "ruleset_gif",
+      "enabled": true,
+      "path": "ruleset/ruleset_gif.json"
+    }, {
+      "id": "ruleset_webp",
+      "enabled": true,
+      "path": "ruleset/ruleset_webp.json"
+    }]
+  },
+  "homepage_url": "https://add0n.com/gif-blocker.html",
+  "background": {
+    "service_worker": "worker.js"
+  },
+  "web_accessible_resources": [{
+    "resources": ["/data/block.svg"],
+    "matches": ["*://*/*"]
+  }],
+  "icons": {
+    "16": "data/icons/16.png",
+    "32": "data/icons/32.png",
+    "48": "data/icons/48.png",
+    "64": "data/icons/64.png",
+    "128": "data/icons/128.png",
+    "256": "data/icons/256.png",
+    "512": "data/icons/512.png"
+  },
+  "action":{
+    "default_title": "GIF Blocker (enabled)"
+  },
+  "options_ui": {
+    "page": "data/options/index.html"
+  },
+  "commands": {
+    "_execute_action": {
+      "description": "Press the action button"
+    }
+  }
+}

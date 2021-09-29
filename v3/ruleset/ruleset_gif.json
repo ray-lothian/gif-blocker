@@ -1,0 +1,14 @@
+[{
+  "id": 2,
+  "priority": 1,
+  "action": {
+    "type": "redirect",
+    "redirect": {
+      "extensionPath": "/data/block.svg"
+    }
+  },
+  "condition": {
+    "regexFilter": "^http.*\\.gif",
+    "resourceTypes": ["image"]
+  }
+}]
