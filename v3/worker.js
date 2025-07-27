@@ -19,7 +19,7 @@ const state = () => chrome.storage.local.get({
     chrome.declarativeNetRequest.getSessionRules().then(rules => chrome.declarativeNetRequest.updateSessionRules({
       removeRuleIds: rules.map(r => r.id)
     }));
-    chrome.contextMenus.removeAll();
+    chrome.contextMenus.remove('reload-image');
   }
   else {
     chrome.action.setIcon({
@@ -41,7 +41,6 @@ const state = () => chrome.storage.local.get({
       enableRulesetIds,
       disableRulesetIds
     });
-    console.log(enableRulesetIds, disableRulesetIds);
     chrome.contextMenus.create({
       id: 'reload-image',
       title: 'Show this Image',
@@ -61,6 +60,30 @@ chrome.action.onClicked.addListener(() => chrome.storage.local.get({
 }, prefs => chrome.storage.local.set({
   disabled: !prefs.disabled
 })));
+
+{
+  const once = () => chrome.storage.local.get({
+    css: false,
+    video: false
+  }, prefs => {
+    chrome.contextMenus.create({
+      id: 'pref-css',
+      title: 'Block "CSS" animation',
+      contexts: ['action'],
+      type: 'checkbox',
+      checked: prefs.css
+    }, () => chrome.runtime.lastError);
+    chrome.contextMenus.create({
+      id: 'pref-video',
+      title: 'Pause video playing',
+      contexts: ['action'],
+      type: 'checkbox',
+      checked: prefs.video
+    }, () => chrome.runtime.lastError);
+  });
+  chrome.runtime.onStartup.addListener(once);
+  chrome.runtime.onInstalled.addListener(once);
+}
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === 'reload-image') {
@@ -119,6 +142,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         });
       },
       args: [info.srcUrl]
+    });
+  }
+  else if (info.menuItemId === 'pref-css' || info.menuItemId === 'pref-video') {
+    chrome.storage.local.set({
+      [info.menuItemId.replace('pref-', '')]: info.checked
     });
   }
 });

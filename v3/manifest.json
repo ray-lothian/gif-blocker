@@ -1,7 +1,7 @@
 {
   "name": "GIF Blocker",
   "description": "Block GIF and WebP animation images on HTML pages to reduce bandwidth and resource usage",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "manifest_version": 3,
   "permissions": [
     "storage",
@@ -24,10 +24,17 @@
       "path": "ruleset/ruleset_webp.json"
     }]
   },
-  "homepage_url": "https://add0n.com/gif-blocker.html",
+  "homepage_url": "https://webextension.org/listing/gif-blocker.html",
   "background": {
     "service_worker": "worker.js"
   },
+  "content_scripts": [{
+    "matches": ["*://*/*"],
+    "js": ["data/inject.js"],
+    "run_at": "document_start",
+    "match_about_blank": true,
+    "all_frames": true
+  }],
   "web_accessible_resources": [{
     "resources": ["/data/block.svg"],
     "matches": ["*://*/*"]

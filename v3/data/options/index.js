@@ -3,10 +3,14 @@
 const toast = document.getElementById('toast');
 
 const restore = () => chrome.storage.local.get({
-  extensions: ['gif', 'webp']
+  extensions: ['gif', 'webp'],
+  css: false,
+  video: false
 }, prefs => {
-  document.getElementById('gif').checked = prefs.extensions.map(s => s.toLowerCase()).indexOf('gif') !== -1;
-  document.getElementById('webp').checked = prefs.extensions.map(s => s.toLowerCase()).indexOf('webp') !== -1;
+  document.getElementById('gif').checked = prefs.extensions.map(s => s.toLowerCase()).includes('gif');
+  document.getElementById('webp').checked = prefs.extensions.map(s => s.toLowerCase()).includes('webp');
+  document.getElementById('css').checked = prefs.css;
+  document.getElementById('video').checked = prefs.video;
 });
 restore();
 
@@ -22,7 +26,9 @@ document.getElementById('save').addEventListener('click', () => {
     extensions.push('gif', 'webp');
   }
   chrome.storage.local.set({
-    extensions
+    extensions,
+    css: document.getElementById('css').checked,
+    video: document.getElementById('video').checked
   }, () => {
     toast.textContent = 'Options Saved';
     restore();
