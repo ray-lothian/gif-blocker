@@ -51,9 +51,22 @@ const state = () => chrome.storage.local.get({
   }
 });
 
-chrome.runtime.onInstalled.addListener(state);
-chrome.runtime.onStartup.addListener(state);
-chrome.storage.onChanged.addListener(state);
+{
+  const once = () => {
+    if (once.done) {
+      return;
+    }
+    once.done = true;
+    state();
+  };
+  chrome.runtime.onInstalled.addListener(once);
+  chrome.runtime.onStartup.addListener(once);
+}
+chrome.storage.onChanged.addListener(ps => {
+  if ('disabled' in ps || 'extensions' in ps) {
+    state();
+  }
+});
 
 chrome.action.onClicked.addListener(() => chrome.storage.local.get({
   disabled: false
@@ -62,10 +75,16 @@ chrome.action.onClicked.addListener(() => chrome.storage.local.get({
 })));
 
 {
-  const once = () => chrome.storage.local.get({
-    css: false,
-    video: false
-  }, prefs => {
+  const once = async () => {
+    if (once.done) {
+      return;
+    }
+    once.done = true;
+
+    const prefs = await chrome.storage.local.get({
+      css: false,
+      video: false
+    });
     chrome.contextMenus.create({
       id: 'pref-css',
       title: 'Block "CSS" animation',
@@ -80,13 +99,40 @@ chrome.action.onClicked.addListener(() => chrome.storage.local.get({
       type: 'checkbox',
       checked: prefs.video
     }, () => chrome.runtime.lastError);
-  });
+    chrome.contextMenus.create({
+      id: 'clear-network-rules',
+      title: 'Clear networks rules',
+      contexts: ['action']
+    }, () => chrome.runtime.lastError);
+  };
   chrome.runtime.onStartup.addListener(once);
   chrome.runtime.onInstalled.addListener(once);
 }
 
+chrome.storage.onChanged.addListener(ps => {
+  if ('css' in ps) {
+    chrome.contextMenus.update('pref-css', {
+      checked: ps.css.newValue
+    });
+  }
+  if ('video' in ps) {
+    chrome.contextMenus.update('pref-video', {
+      checked: ps.video.newValue
+    });
+  }
+});
+
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId === 'reload-image') {
+  if (info.menuItemId === 'clear-network-rules') {
+    chrome.declarativeNetRequest.getSessionRules().then(rules => {
+      if (rules.length) {
+        chrome.declarativeNetRequest.updateSessionRules({
+          removeRuleIds: rules.map(r => r.id)
+        });
+      }
+    });
+  }
+  else if (info.menuItemId === 'reload-image') {
     const rules = await chrome.declarativeNetRequest.getSessionRules();
 
     chrome.declarativeNetRequest.updateSessionRules({

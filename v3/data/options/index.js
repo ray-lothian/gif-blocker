@@ -35,6 +35,16 @@ document.getElementById('save').addEventListener('click', () => {
     window.setTimeout(() => toast.textContent = '', 750);
   });
 });
+
+chrome.storage.onChanged.addListener(ps => {
+  if ('css' in ps) {
+    document.getElementById('css').checked = ps.css.newValue;
+  }
+  if ('video' in ps) {
+    document.getElementById('video').checked = ps.video.newValue;
+  }
+});
+
 // reset
 document.getElementById('reset').addEventListener('click', e => {
   if (e.detail === 1) {
